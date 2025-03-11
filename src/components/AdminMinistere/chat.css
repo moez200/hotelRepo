@@ -1,0 +1,9 @@
+/* Chat.css */
+.login-message {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-size: 1.2em;
+    color: #666;
+  }
