@@ -22,6 +22,10 @@ import {
   Checkbox,
   Snackbar,
   Alert,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
 } from "@mui/material";
 import { Edit, Delete, Add, Search, Article } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -380,54 +384,51 @@ const handleDeleteCours = async (id: number | undefined) => {
 
 
         {/* Course Dialog */}
-          <Dialog open={openCoursDialog} onClose={() => setOpenCoursDialog(false)}>
-             <DialogTitle>{currentCours?.id ? "Modifier un Cours" : "Ajouter un Cours"}</DialogTitle>
-               <DialogContent>
-                 <TextField
-                   label="title"
-                   fullWidth
-                   value={currentCours?.title}
-                   onChange={(e) => setCurrentCours({ ...currentCours, title: e.target.value })}
-                   margin="normal"
-                 />
-                 <TextField
-                   label="description"
-                   fullWidth
-                   value={currentCours?.description}
-                   onChange={(e) => setCurrentCours({ ...currentCours, description: e.target.value })}
-                   margin="normal"
-                 />
-               
-                 <TextField
-                   label="logo"
-                   fullWidth
-                   value={currentCours?.logo}
-                   onChange={(e) => setCurrentCours({ ...currentCours, logo: e.target.value })}
-                   margin="normal"
-                 />
-             
-                 <TextField
-                   label="Grade (ID)"
-                   fullWidth
-                   type="number"
-                   value={currentCours?.grades}
-                   onChange={(e) => setCurrentCours({ ...currentCours, grades: +e.target.value })}
-                   margin="normal"
-                 />
-               </DialogContent>
-               <DialogActions>
-                 <Button onClick={() => setOpenCoursDialog(false)} color="primary">
-                   Annuler
-                 </Button>
-                   <Button
-                      onClick={handleSaveCours} // Appel de la même fonction pour l'ajout et la modification
-                      color="primary"
-                    >
-                      {currentCours?.id ? "Modifier" : "Enregistrer"}
-                   
-                    </Button>
-               </DialogActions>
-             </Dialog>
+        <Dialog open={openCoursDialog} onClose={() => setOpenCoursDialog(false)}>
+          <DialogTitle>{currentCours?.id ? "Modifier un Cours" : "Ajouter un Cours"}</DialogTitle>
+          <DialogContent>
+            <TextField 
+              label="Titre" 
+              fullWidth 
+              value={currentCours?.title || ''} 
+              onChange={(e) => setCurrentCours({ ...currentCours, title: e.target.value })} 
+              margin="normal" 
+            />
+            <TextField 
+              label="Description" 
+              fullWidth 
+              value={currentCours?.description || ''} 
+              onChange={(e) => setCurrentCours({ ...currentCours, description: e.target.value })} 
+              margin="normal" 
+            />
+            <TextField 
+              label="Logo URL" 
+              fullWidth 
+              value={currentCours?.logo || ''} 
+              onChange={(e) => setCurrentCours({ ...currentCours, logo: e.target.value })} 
+              margin="normal" 
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="grade-select-label">Grade</InputLabel>
+              <Select
+                labelId="grade-select-label"
+                label="Grade"
+                value={currentCours?.grades || ''}
+                onChange={(e) => setCurrentCours({ ...currentCours, grades: +e.target.value })}
+              >
+                {grades.map((grade) => (
+                  <MenuItem key={grade.id} value={grade.id}>
+                    {grade.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCoursDialog(false)} color="primary">Annuler</Button>
+            <Button onClick={handleSaveCours} color="primary">{currentCours?.id ? "Modifier" : "Enregistrer"}</Button>
+          </DialogActions>
+        </Dialog>
       </div>
     
         <Snackbar

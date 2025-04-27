@@ -22,14 +22,19 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [members, setMembers] = useState<{ first_name: string; isOnline: boolean }[]>([]);
+  const [people, setPeople] = useState<{ first_name: string; isOnline: boolean }[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [notifications, setNotifications] = useState<{ message: string; sender: string }[]>([]);
   const [showNotificationBox, setShowNotificationBox] = useState(false);
+  const [activeTab, setActiveTab] = useState<'members' | 'people'>('members');
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const chatSocket = useRef<WebSocket | null>(null);
   const accessToken = getAuthStore((state) => state.accessToken);
   const currentUser = getAuthStore((state) => state.first_name || 'You');
-  const roomName = 'Admin';
+  const roomName = selectedPerson 
+    ? `private_${[currentUser, selectedPerson].sort().join('_')}` // Sort to ensure consistent room names
+    : 'Admin';
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -38,8 +43,9 @@ const Chat = () => {
       chatSocket.current = new WebSocket(wsUrl);
 
       chatSocket.current.onopen = () => {
-        console.log('Connected to WebSocket');
+        console.log('Connected to WebSocket:', roomName);
         chatSocket.current?.send(JSON.stringify({ type: 'get_members' }));
+        chatSocket.current?.send(JSON.stringify({ type: 'get_all_users' }));
       };
 
       chatSocket.current.onmessage = (e) => {
@@ -51,7 +57,7 @@ const Chat = () => {
             setMessages((prev) => [
               ...prev,
               {
-                id: data.id, // Rely solely on backend ID
+                id: data.id,
                 sender: data.first_name,
                 text: data.message,
                 time: new Date(data.time).toLocaleTimeString('en-US', {
@@ -82,10 +88,20 @@ const Chat = () => {
             setMembers(data.members);
             break;
 
+          case 'all_users':
+            console.log('All users received:', data.users);
+            setPeople(data.users.filter((user: any) => user.first_name !== currentUser));
+            break;
+
           case 'member_status':
             setMembers((prev) =>
               prev.map((m) =>
                 m.first_name === data.first_name ? { ...m, isOnline: data.isOnline } : m
+              )
+            );
+            setPeople((prev) =>
+              prev.map((p) =>
+                p.first_name === data.first_name ? { ...p, isOnline: data.isOnline } : p
               )
             );
             break;
@@ -174,7 +190,7 @@ const Chat = () => {
   };
 
   const handleMarkAsRead = (messageId: string) => {
-    console.log(`Marking message as read: ${messageId}`); // Debug log
+    console.log(`Marking message as read: ${messageId}`);
     if (chatSocket.current) {
       chatSocket.current.send(JSON.stringify({ type: 'mark_as_read', message_id: messageId }));
       setMessages((prev) =>
@@ -196,43 +212,110 @@ const Chat = () => {
     setShowEmojiPicker(false);
   };
 
+  const handleSelectPerson = (firstName: string) => {
+    setSelectedPerson(firstName);
+    setMessages([]); // Clear messages when switching to a private chat
+  };
+
+  const handleBackToGroup = () => {
+    setSelectedPerson(null);
+    setMessages([]); // Clear messages when switching back to group chat
+  };
+
   return (
     <div className="flex bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
       {/* Sidebar */}
       <div className="w-72 bg-white/90 backdrop-blur-lg shadow-xl rounded-xl m-4 p-6 transition-all duration-300 hover:shadow-2xl flex flex-col">
-        <h2 className="text-xl font-bold text-purple-700 mb-4">Membres ({members.length})</h2>
-        <div className="overflow-y-auto h-[calc(100vh-8rem)] scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
-          {members.map((member, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-purple-50 transition-colors mb-2"
-            >
-              <div className="relative">
-                <img
-                  src={`https://github.com/identicons/${member.first_name}.png`}
-                  alt="Profile"
-                  className="w-9 h-9 rounded-full mr-3"
-                />
-                {member.isOnline && (
-                  <div className="absolute bottom-0 right-2 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
-                )}
-              </div>
-              <div>
-                <span className="text-sm font-semibold text-gray-700">{member.first_name}</span>
-                <div className="text-xs" style={{ color: member.isOnline ? '#34D399' : '#9CA3AF' }}>
-                  {member.isOnline ? 'En ligne' : 'Hors ligne'}
+        <div className="flex border-b mb-4">
+          <button
+            className={`flex-1 py-2 font-medium ${activeTab === 'members' ? 'border-b-2 border-purple-500 text-purple-700' : 'text-gray-600 hover:text-purple-700'}`}
+            onClick={() => setActiveTab('members')}
+          >
+            Membres ({members.length})
+          </button>
+          <button
+            className={`flex-1 py-2 font-medium ${activeTab === 'people' ? 'border-b-2 border-purple-500 text-purple-700' : 'text-gray-600 hover:text-purple-700'}`}
+            onClick={() => setActiveTab('people')}
+          >
+            Personnes ({people.length})
+          </button>
+        </div>
+
+        <div className="overflow-y-auto h-[calc(100vh-10rem)] scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
+          {activeTab === 'members' ? (
+            members.map((member, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-purple-50 transition-colors mb-2"
+              >
+                <div className="relative">
+                  <img
+                    src={`https://github.com/identicons/${member.first_name}.png`}
+                    alt="Profile"
+                    className="w-9 h-9 rounded-full mr-3"
+                  />
+                  {member.isOnline && (
+                    <div className="absolute bottom-0 right-2 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                  )}
                 </div>
-              </div>
-            </motion.div>
-          ))}
+                <div>
+                  <span className="text-sm font-semibold text-gray-700">{member.first_name}</span>
+                  <div className="text-xs" style={{ color: member.isOnline ? '#34D399' : '#9CA3AF' }}>
+                    {member.isOnline ? 'En ligne' : 'Hors ligne'}
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            people.map((person, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className={`flex items-center p-3 rounded-lg transition-colors mb-2 cursor-pointer ${
+                  selectedPerson === person.first_name ? 'bg-purple-100' : 'bg-gray-50 hover:bg-purple-50'
+                }`}
+                onClick={() => handleSelectPerson(person.first_name)}
+              >
+                <div className="relative">
+                  <img
+                    src={`https://github.com/identicons/${person.first_name}.png`}
+                    alt="Profile"
+                    className="w-9 h-9 rounded-full mr-3"
+                  />
+                  {person.isOnline && (
+                    <div className="absolute bottom-0 right-2 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                  )}
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-gray-700">{person.first_name}</span>
+                  <div className="text-xs" style={{ color: person.isOnline ? '#34D399' : '#9CA3AF' }}>
+                    {person.isOnline ? 'En ligne' : 'Hors ligne'}
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
 
       {/* Main Chat */}
       <div className="flex-1 bg-white/90 backdrop-blur-lg shadow-xl rounded-xl m-4 p-6 flex flex-col transition-all duration-300 hover:shadow-2xl">
-        <h2 className="text-2xl font-bold text-purple-700 text-center mb-6">Discussion - {roomName}</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-purple-700">
+            Discussion - {selectedPerson ? `Privé avec ${selectedPerson}` : roomName}
+          </h2>
+          {selectedPerson && (
+            <button
+              onClick={handleBackToGroup}
+              className="text-sm text-purple-600 hover:text-purple-800 underline"
+            >
+              Retour au groupe
+            </button>
+          )}
+        </div>
 
         <div className="flex-1 overflow-y-auto bg-gray-50/50 p-4 rounded-xl space-y-4 scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
           {typingUsers.length > 0 && (

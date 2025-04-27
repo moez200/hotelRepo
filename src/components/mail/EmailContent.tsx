@@ -1,33 +1,47 @@
-// components/EmailContent.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bold, Italic, List, AlignLeft, Image, Paperclip, SmilePlus, X } from 'lucide-react';
 import { emails } from '../../services/mail.service';
-import { EmailCreateRequest } from '../../types/auth';
+import { EmailCreateRequest } from '../../types/auth'; // Importer depuis auth.ts
 
 interface EmailContentProps {
   onClose: () => void;
+  initialData?: Partial<EmailCreateRequest>;
+  onSend?: (data: EmailCreateRequest) => void;
 }
 
-const EmailContent = ({ onClose }: EmailContentProps) => {
-  const [newEmail, setNewEmail] = useState({
-    subject: '',
-    content: '',
-    recipients: [] as string[]
+const EmailContent = ({ onClose, initialData = {}, onSend }: EmailContentProps) => {
+  const [newEmail, setNewEmail] = useState<EmailCreateRequest>({
+    subject: initialData.subject || '',
+    content: initialData.content || '',
+    recipients: initialData.recipients || [],
+    attachments: [], // Toujours un tableau, jamais undefined
   });
   const [recipientInput, setRecipientInput] = useState('');
+
+  useEffect(() => {
+    if (initialData.recipients && initialData.recipients.length > 0) {
+      setRecipientInput(initialData.recipients.join(', '));
+    }
+  }, [initialData.recipients]);
 
   const handleSend = async () => {
     try {
       const emailData: EmailCreateRequest = {
         recipients: newEmail.recipients,
         subject: newEmail.subject,
-        content: newEmail.content
+        content: newEmail.content,
+        attachments: newEmail.attachments || [],
       };
-      
-      await emails.send(emailData);
-      setNewEmail({ subject: '', content: '', recipients: [] });
+
+      if (onSend) {
+        onSend(emailData);
+      } else {
+        await emails.send(emailData);
+      }
+
+      setNewEmail({ subject: '', content: '', recipients: [], attachments: [] });
       setRecipientInput('');
-      onClose(); // Close the composer after sending
+      onClose();
     } catch (error) {
       console.error('Failed to send email:', error);
     }
@@ -36,14 +50,45 @@ const EmailContent = ({ onClose }: EmailContentProps) => {
   const handleRecipientChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     setRecipientInput(input);
-    const recipientList = input.split(',').map(email => email.trim()).filter(email => email);
+    const recipientList = input
+      .split(',')
+      .map(id => id.trim())
+      .filter(id => id);
     setNewEmail(prev => ({ ...prev, recipients: recipientList }));
+  };
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setNewEmail(prev => ({
+        ...prev,
+        attachments: [...(prev.attachments || []), file],
+      }));
+      const imageUrl = URL.createObjectURL(file);
+      setNewEmail(prev => ({
+        ...prev,
+        content: prev.content + `\n![Image](${imageUrl})\n`,
+      }));
+    }
+  };
+
+  const handleAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setNewEmail(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, ...(e.target.files ? Array.from(e.target.files || []) : [])],
+      }));
+    }
+  };
+
+  const handleEmoji = () => {
+    setNewEmail(prev => ({
+      ...prev,
+      content: prev.content + ' 😊 ',
+    }));
   };
 
   return (
-    <div className="flex-1 bg-white flex flex-col p-r100"
-    style={{ minWidth: '10px', minHeight: '30rem' }} 
-  >
+    <div className="flex-1 bg-white flex flex-col p-4" style={{ minWidth: '10px', minHeight: '30rem' }}>
       <div className="border-b p-4 flex justify-between items-center bg-blue-100">
         <span className="text-lg font-semibold text-gray-900">New Message</span>
         <button onClick={onClose} className="p-2 hover:bg-blue-100 rounded-lg">
@@ -52,12 +97,14 @@ const EmailContent = ({ onClose }: EmailContentProps) => {
       </div>
 
       <div className="p-4">
-        <input
+      <input
           type="text"
-          placeholder="To (e.g., user1@example.com, user2@example.com)"
+          placeholder="To (e.g., 1, 2 for user IDs)"
           value={recipientInput}
           onChange={handleRecipientChange}
           className="text-lg text-gray-900 w-full border-none focus:outline-none mb-2"
+          // Supprimer ou ajuster la condition disabled
+          disabled={false} // Forcer l'activation pour permettre la saisie
         />
         <input
           type="text"
@@ -92,17 +139,19 @@ const EmailContent = ({ onClose }: EmailContentProps) => {
             <button className="p-2 hover:bg-gray-100 rounded-lg">
               <AlignLeft size={18} className="text-gray-600" />
             </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
+            <label className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer">
               <Image size={18} className="text-gray-600" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
+              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+            </label>
+            <label className="p-2 hover:bg-gray-100 rounded-lg cursor-pointer">
               <Paperclip size={18} className="text-gray-600" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
+              <input type="file" multiple onChange={handleAttachment} className="hidden" />
+            </label>
+            <button onClick={handleEmoji} className="p-2 hover:bg-gray-100 rounded-lg">
               <SmilePlus size={18} className="text-gray-600" />
             </button>
           </div>
-          <button 
+          <button
             onClick={handleSend}
             className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors"
           >

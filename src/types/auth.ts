@@ -116,10 +116,11 @@ export interface Chapitre {
   cours: number;
   completed: boolean;
   pauses?: Pause[];
+  
 }
 
 export interface Pause {
-  tempsPause: number | ""; // Correspond à "temps_pause"
+  tempsPause: number | null;// Correspond à "temps_pause"
   information: string;
   correctGrid?: {
     row: number; // Correspond à "correct_grid_row"
@@ -147,16 +148,41 @@ export interface Outz {
   cours: number;
 }
 
+export interface ClickableRegion {
+  x: number;
+  y: number;
+  time: number;
+}
+
+export interface ClickableZone {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  time: number;
+}
+
+export interface InteractionResponse2 {
+  isValid: boolean;
+  region: ClickableRegion | ClickableZone;
+  clicked: boolean;
+  clickTime?: number;
+  clickX?: number;
+  clickY?: number;
+}
 export interface QuestionCour {
   id?: number; // optionnel si l'objet n'est pas encore créé
-  imagecour: string;
+  imagecour?: string | File; // File for uploads, string for URLs
+  video?: string | File;
   title: string;
   op1: string;
   op2: string;
   op3: string;
   op4: string;
   rep: string;
-  quizzecur: number; // ID de la relation
+  quizzecur: number;
+  clickable_regions?: ClickableRegion[];
+  clickable_zones?: ClickableZone[]; // ID de la relation
 }
 
 export interface AdminMinistere  extends User{
@@ -237,6 +263,7 @@ export interface VideoInteraction {
   interaction_type: 'click' | 'hover' | 'drag';
 }
 export interface InteractionResponse {
+ 
   interactionId: string;
   timestamp: number;
   success: boolean;
@@ -269,6 +296,19 @@ export interface Email {
   is_favorite: boolean;
 }
 
+export interface EmailAttachment {
+  id: number;
+  email: number; // ID de l'email parent
+  file: {
+    includes(arg0: string): unknown;
+    split(arg0: string): never;
+    url: string; // URL du fichier
+    type: string; // Type MIME (ex: 'image/jpeg', 'application/pdf')
+    name?: string; // Nom du fichier (optionnel)
+  };
+  uploaded_at: string; // Date de téléversement
+}
+
 export interface Label {
   id: number;
   name: string;
@@ -281,6 +321,7 @@ export interface EmailCreateRequest {
   recipients: string[];
   subject: string;
   content: string;
+  attachments: File[];
 }
 
 export interface LabelCreateRequest {

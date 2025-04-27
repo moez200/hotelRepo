@@ -6,27 +6,24 @@ import {
   TableContainer, 
   TableHead, 
   TableRow, 
-  IconButton, 
+   
   TablePagination, 
   TextField, 
   InputAdornment, 
-  Button,
+
   Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+ 
   Chip,
   Alert,
   Snackbar,
  
 } from '@mui/material';
-import { Check, X, Trash2, Edit, Search, Delete } from 'lucide-react';
+import {  Search } from 'lucide-react';
 import { styled } from '@mui/system';
-import {  approveUser, rejectUser, } from "../../services/users.services";
+
 import type { AdminEntreprise,  Company, GradeType } from "../../types/auth";
 import { apprenantService } from "../../services/apprenent.service";
-import { Add } from "@mui/icons-material";
+
 import { CoursService } from "../../services/cours.service";
 import { getCompanies } from "../../services/companyService";
 import { adminEntrepriseService } from "../../services/admin_entreprise";

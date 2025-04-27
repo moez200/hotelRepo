@@ -22,7 +22,7 @@ import { ListIcon } from "lucide-react";
 import { useAuth } from "../hook/useAuth";
 import axios from "axios";
 import { getAuthStore } from "../../store/auth";
-import WebViewer from '@pdftron/webviewer'; // Import de WebViewer
+import WebViewer from '@pdftron/webviewer';
 
 const StyledTableContainer = styled(TableContainer)({
   borderRadius: "12px",
@@ -39,7 +39,6 @@ const HeaderCell = styled(TableCell)({
 });
 
 const ChapitreComponent = () => {
-  const [chapitre, setChapitre] = useState<Chapitre | null>(null);
   const { role } = useAuth() || { role: '' };
   const userRole = role || 'Admin Ministère';
   const { coursId } = useParams<{ coursId: string }>();
@@ -54,18 +53,21 @@ const ChapitreComponent = () => {
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string>('');
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [message, setMessage] = useState<string>("");
-  const [pauses, setPauses] = useState<Pause[]>([{ tempsPause: "", information: "", correctGrid: undefined }]);
-  const viewerRef = useRef<HTMLDivElement>(null); // Référence pour le conteneur WebViewer
-  const [viewerInstance, setViewerInstance] = useState<any>(null); // Instance de WebViewer
+  const [pauses, setPauses] = useState<Pause[]>([{ tempsPause: null, information: "", correctGrid: undefined }]);
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const [viewerInstance, setViewerInstance] = useState<any>(null);
+  const token = getAuthStore((state) => state.accessToken);
 
   const isVideo = file && file.name.toLowerCase().endsWith(".mp4");
   const isPptx = file && file.name.toLowerCase().endsWith(".pptx");
   const isAdmin = userRole === 'Admin Ministère';
-  const token = getAuthStore((state) => state.accessToken);
 
+  // Log pour détecter les rendus multiples
+  console.log('[ChapitreComponent] Rendering');
+  // Fetch chapitres and cours on mount
   useEffect(() => {
     if (coursId) {
       fetchChapitres();
@@ -73,21 +75,37 @@ const ChapitreComponent = () => {
     }
   }, [coursId]);
 
+  // Initialize WebViewer once on component mount
   useEffect(() => {
-    // Initialiser WebViewer une seule fois au montage du composant
-    if (viewerRef.current && !viewerInstance) {
+    console.log('[ChapitreComponent] Mounting - Initializing WebViewer');
+    let instance: any = null;
+  
+    // Vérifie si un WebViewer existe déjà dans le DOM
+    const existingViewer = document.querySelector('#webviewer-container > iframe');
+    if (viewerRef.current && !viewerInstance && !existingViewer) {
       WebViewer({
-        path: '/webviewer/lib', // Chemin vers les fichiers statiques de WebViewer (doit être copié dans public)
-        licenseKey: 'your_license_key_here', // Remplacez par une clé de licence valide ou laissez vide pour la version d'essai
-      }, viewerRef.current).then((instance) => {
+        path: '/webviewer/lib',
+        licenseKey: 'your_license_key_here', // Remplace par ta clé
+      }, viewerRef.current).then((webViewerInstance) => {
+        instance = webViewerInstance;
         setViewerInstance(instance);
-        instance.UI.setTheme('dark'); // Optionnel : personnaliser l'apparence
+        instance.UI.setTheme('dark');
+        console.log('[WebViewer] Initialized successfully');
       }).catch((err) => {
-        console.error('[WebViewer] Erreur d’initialisation :', err);
+        console.error('[WebViewer] Initialization error:', err);
         setError('Erreur lors de l’initialisation du visualiseur PPTX');
       });
+    } else if (existingViewer) {
+      console.log('[WebViewer] Already initialized, reusing existing instance');
     }
-  }, [viewerRef, viewerInstance]);
+  
+    return () => {
+      if (instance) {
+        instance.UI.dispose();
+        console.log('[WebViewer] Disposed');
+      }
+    };
+  }, []); // Dépendances vides pour une exécution unique// Empty dependency array to run only once on mount
 
   const fetchChapitres = async () => {
     try {
@@ -98,7 +116,6 @@ const ChapitreComponent = () => {
         return;
       }
       const data = await ChapitreService.getChapitresForCours(coursIdNumber);
-      console.log('Raw API Response:', data);
       if (Array.isArray(data)) {
         setChapitres(data);
       }
@@ -138,10 +155,10 @@ const ChapitreComponent = () => {
   const handleOpenChapitreDialog = (chapitre?: Chapitre) => {
     if (chapitre) {
       setNewChapitre(chapitre);
-      setPauses(chapitre.pauses || [{ tempsPause: "", information: "", correctGrid: undefined }]);
+      setPauses(chapitre.pauses || [{ tempsPause: null, information: "", correctGrid: undefined }]);
     } else {
       setNewChapitre({ title: '', description: '', video: null, pdf: null, pptx: null, cours: parseInt(coursId!, 10) });
-      setPauses([{ tempsPause: "", information: "", correctGrid: undefined }]);
+      setPauses([{ tempsPause: null, information: "", correctGrid: undefined }]);
     }
     setFile(null);
     setFileUrl('');
@@ -149,7 +166,7 @@ const ChapitreComponent = () => {
   };
 
   const handleAddPause = () => {
-    setPauses([...pauses, { tempsPause: "", information: "", correctGrid: undefined }]);
+    setPauses([...pauses, { tempsPause: null ,information: "", correctGrid: undefined }]);
   };
 
   const handleRemovePause = (index: number) => {
@@ -176,13 +193,10 @@ const ChapitreComponent = () => {
         throw new Error("Invalid coursId");
       }
       const responseData = await updateChapitrePauses(coursIdNumber, chapitreId, updatedPauses);
-      if (responseData && typeof responseData === 'object' && 'id' in responseData) {
-        setChapitre(responseData);
+      if (responseData && 'id' in responseData) {
         setChapitres((prev) =>
           prev.map((c) => (c.id === chapitreId ? { ...c, ...responseData } : c))
         );
-      } else {
-        throw new Error("Invalid response data from API");
       }
     } catch (error) {
       console.error("Failed to update pauses:", error);
@@ -218,7 +232,7 @@ const ChapitreComponent = () => {
       if (fileExtension === "mp4") {
         formData.append("video", file);
         const validPauses = pauses
-          .filter((p) => p.tempsPause !== "" && p.information !== "")
+          .filter((p) => p.tempsPause !== null && p.information !== "")
           .map((p) => ({
             temps_pause: Number(p.tempsPause),
             information: p.information,
@@ -243,8 +257,13 @@ const ChapitreComponent = () => {
         responseData = await ChapitreService.ajouterChapitre(formData, coursIdNumber);
       }
       if (responseData && typeof responseData === 'object' && 'fileUrl' in responseData) {
-        setFileUrl(responseData.fileUrl as string);
-        setMessage(`Chapitre ${newChapitre.id ? 'modifié' : 'ajouté'} avec succès ! URL: ${responseData.fileUrl}`);
+        const fileUrl = responseData.fileUrl as string;
+        setFileUrl(fileUrl);
+        setMessage(`Chapitre ${newChapitre.id ? 'modifié' : 'ajouté'} avec succès ! URL: ${fileUrl}`);
+        if (file && isPptx && viewerInstance) {
+          viewerInstance.UI.loadDocument(fileUrl, { filename: `chapitre_${(responseData as unknown as { id: number }).id || 'new'}.pptx` });
+          console.log(`[PPTX] Loaded new PPTX from URL: ${fileUrl}`);
+        }
       } else {
         setMessage(`Chapitre ${newChapitre.id ? 'modifié' : 'ajouté'} avec succès !`);
       }
@@ -252,7 +271,7 @@ const ChapitreComponent = () => {
       setNewChapitre(null);
       setOpenChapitreDialog(false);
       setFile(null);
-      setPauses([{ tempsPause: "", information: "", correctGrid: undefined }]);
+      setPauses([{ tempsPause: null ,information: "", correctGrid: undefined }]);
     } catch (err) {
       console.error("Erreur lors de l'enregistrement:", err);
       setError("Erreur lors de l'enregistrement.");
@@ -263,55 +282,53 @@ const ChapitreComponent = () => {
 
   const handleOpenPPTXInApp = async (chapitre: Chapitre) => {
     if (!chapitre.pptx) {
-      console.log(`[PPTX] Aucun fichier PPTX disponible pour chapitre ${chapitre.id}`);
-      setError('No PPTX file available');
+      setError('Aucun fichier PPTX disponible');
       return;
     }
 
     if (!viewerInstance) {
-      console.log('[PPTX] WebViewer n’est pas encore initialisé');
-      setError('Visualiseur non prêt, veuillez réessayer');
+      setError('Le visualiseur n’est pas prêt, veuillez réessayer');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      console.log(`[PPTX] Début de la récupération pour cours=${coursId}, chapitre=${chapitre.id}`);
 
-      const response = await axios.get<ArrayBuffer>(
-        `http://localhost:8000/cours/cours/${coursId}/chapitre/${chapitre.id}/pptx/`,
-        {
-          responseType: 'arraybuffer',
-          headers: {
-            'Authorization': `Bearer ${token || ''}`,
-          },
-        }
-      );
+      const pptxUrl = chapitre.pptx.startsWith('http')
+        ? chapitre.pptx
+        : `http://localhost:8000/cours/cours/${coursId}/chapitre/${chapitre.id}/pptx/`;
 
-      console.log(`[PPTX] Réponse reçue : statut=${response.status}, taille=${response.data.byteLength} octets`);
-      if (!response.data) {
-        console.error('[PPTX] Aucun contenu dans la réponse');
-        throw new Error('No PPTX content received');
+      console.log(`[PPTX] Fetching PPTX from: ${pptxUrl}`);
+
+      const response = await axios.get(pptxUrl, {
+        responseType: 'arraybuffer',
+        headers: { Authorization: `Bearer ${token || ''}` },
+      });
+
+      const responseData = response.data as ArrayBuffer;
+      if (!responseData || responseData.byteLength === 0) {
+        throw new Error('Le fichier PPTX est vide ou non récupéré');
       }
 
-      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
-      console.log(`[PPTX] Blob créé : taille=${blob.size}, type=${blob.type}`);
+      const blob = new Blob([response.data as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
       const url = URL.createObjectURL(blob);
-      console.log(`[PPTX] URL Blob générée : ${url}`);
+      console.log(`[PPTX] Blob URL created: ${url}`);
 
-      // Charger le PPTX dans WebViewer
       viewerInstance.UI.loadDocument(url, { filename: `chapitre_${chapitre.id}.pptx` });
-      console.log('[PPTX] PPTX chargé dans WebViewer');
-
       setFileUrl(url);
 
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        console.log(`[PPTX] Blob URL revoked: ${url}`);
+      }, 10000);
+
+      setMessage('Fichier PPTX chargé avec succès');
     } catch (error) {
-      console.error(`[PPTX] Erreur lors du chargement : ${(error as any).message}`, error);
-      setError(`Failed to load PPTX: ${(error as any).message}`);
+      console.error('[PPTX] Error loading PPTX:', error);
+      setError(`Erreur lors du chargement du PPTX : ${(error as any).message}`);
     } finally {
       setLoading(false);
-      console.log('[PPTX] Chargement terminé');
     }
   };
 
@@ -595,7 +612,7 @@ const ChapitreComponent = () => {
       </Dialog>
       <Box mt={4}>
         <Typography variant="h6">Visualiseur PPTX</Typography>
-        <div ref={viewerRef} style={{ height: '600px', width: '100%' }} />
+        <div ref={viewerRef} style={{ height: '600px', width: '100%', border: '1px solid #ddd' }} />
       </Box>
       <Snackbar open={!!message} autoHideDuration={6000} onClose={() => setMessage("")}>
         <Alert onClose={() => setMessage("")} severity="success">{message}</Alert>

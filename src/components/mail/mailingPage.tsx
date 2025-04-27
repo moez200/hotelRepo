@@ -1,5 +1,5 @@
 // components/MailingPage.tsx
-import React, { useState } from 'react';
+import  { useState } from 'react';
 
 import EmailList from './EmailList';
 import EmailContent from './EmailContent';

@@ -20,7 +20,11 @@ import {
   DialogTitle,
   Alert,
   Snackbar,
-  Chip
+  Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select
 } from '@mui/material';
 import { Edit, Delete, Search, Add } from '@mui/icons-material';
 import { styled } from '@mui/system';
@@ -265,7 +269,7 @@ const QuizzChapitre = () => {
                          </TableCell>
                     <TableCell>
   <IconButton
-    onClick={() => navigate(`/ListChapitres/Quizz/${q.id}/Questionschapitre`)}
+    onClick={() => navigate(`/ListChapitres/${q.chapitres}/Quizz/${q.id}/Questionschapitre`)}
     sx={{
       color: '#6d28d9',
       '&:hover': {
@@ -300,33 +304,52 @@ const QuizzChapitre = () => {
           />
         </StyledTableContainer>
       </div>
-
       <Dialog open={openQuizzDialog} onClose={() => setOpenQuizzDialog(false)}>
-        <DialogTitle>{currentQuizz.id ? "Modifier un Quizz" : "Ajouter un Quizz"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Title"
-            value={currentQuizz.title}
-            onChange={(e) => setCurrentQuizz({ ...currentQuizz, title: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Chapitre"
-            type="number"
-            value={currentQuizz.chapitres}
-            onChange={(e) => setCurrentQuizz({ ...currentQuizz, chapitres: +e.target.value })}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenQuizzDialog(false)}>Annuler</Button>
-          <Button onClick={handleSaveQuizz} color="primary">
-            {currentQuizz.id ? "Modifier" : "Enregistrer"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+  <DialogTitle>{currentQuizz.id ? "Modifier un Quizz" : "Ajouter un Quizz"}</DialogTitle>
+  <DialogContent>
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Titre du Quizz"
+      value={currentQuizz.title}
+      onChange={(e) => setCurrentQuizz({ ...currentQuizz, title: e.target.value })}
+      variant="outlined"
+      required
+    />
+    <FormControl fullWidth margin="normal" variant="outlined">
+      <InputLabel id="chapter-select-label">Chapitre</InputLabel>
+      <Select
+        labelId="chapter-select-label"
+        label="Chapitre"
+        value={currentQuizz.chapitres || ''}
+        onChange={(e) => setCurrentQuizz({ ...currentQuizz, chapitres: +e.target.value })}
+        required
+      >
+        <MenuItem value="" disabled>
+          Sélectionner un chapitre
+        </MenuItem>
+        {chapitres.map((chapter) => (
+          <MenuItem key={chapter.id} value={chapter.id}>
+            {chapter.title}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenQuizzDialog(false)} color="secondary">
+      Annuler
+    </Button>
+    <Button
+      onClick={handleSaveQuizz}
+      color="primary"
+      variant="contained"
+      disabled={!currentQuizz.title || !currentQuizz.chapitres}
+    >
+      {currentQuizz.id ? "Modifier" : "Enregistrer"}
+    </Button>
+  </DialogActions>
+</Dialog>
 
       <Snackbar open={!!message} autoHideDuration={6000} onClose={() => setMessage("")}>
         <Alert onClose={() => setMessage("")} severity="success">{message}</Alert>

@@ -1,12 +1,13 @@
 import axios from 'axios';
 import { QuizzChapitre } from '../types/auth';
+import { api } from './api';
 
 
 const API_URL = 'http://localhost:8000/cours/'; 
 
 export const addQuizzToChapitre = async (chapitreId: number, quizzData: { title: string }): Promise<QuizzChapitre> => {
   try {
-    const response = await axios.post(`${API_URL}add/chapitre/${chapitreId}/quizz/`, quizzData);
+    const response = await api.post(`${API_URL}add/chapitre/${chapitreId}/quizz/`, quizzData);
     return response.data as QuizzChapitre ;
   } catch (error) {
     console.error('Error adding quizz:', error);
@@ -38,7 +39,7 @@ export const deleteQuizz = async (quizzId: number): Promise<void> => {
 // Obtenir les quizzes d'un chapitre spécifique
 export const getQuizzByChapitre = async (chapitreId: number): Promise<QuizzChapitre[]> => {
   try {
-    const response = await axios.get(`${API_URL}chapitre/${chapitreId}/quizz/`);
+    const response = await api.get(`${API_URL}chapitre/${chapitreId}/quizz/`);
     return response.data as QuizzChapitre[];
   } catch (error) {
     console.error('Error fetching quizz by chapitre:', error);

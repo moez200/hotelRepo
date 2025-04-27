@@ -1,5 +1,6 @@
 import axios from "axios";
 import { CourType, GradeType } from "../types/auth";
+import { api } from "./api";
 
 const API_URL = "http://127.0.0.1:8000/cours/";
 
@@ -17,7 +18,7 @@ export const CoursService = {
   getAllCours: () => axios.get<CourType[]>(`${API_URL}cours/`),
 
   // Méthode pour obtenir un cours par ID
-  getCoursById: (id: number) => axios.get<CourType>(`${API_URL}cours/${id}/`),
+  getCoursById: (id: number) => api.get<CourType>(`${API_URL}cours/${id}/`),
 
 
   

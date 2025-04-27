@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import { FaQuestionCircle } from "react-icons/fa"; // FontAwesome
-import { HelpCircle, ListIcon } from "lucide-react"; // Lucide
+import {  ListIcon } from "lucide-react"; // Lucide
 import type { CourType, Outz, QuestionCour } from "../../types/auth"; // Change Domaine to Outz (Quizz)
 import { 
   Table, 
@@ -21,7 +21,11 @@ import {
   DialogContent,
   DialogTitle,
   Alert,
-  Snackbar
+  Snackbar,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select
 } from '@mui/material';
 import { Edit, Delete, Search, Add } from '@mui/icons-material';
 import { styled } from '@mui/system';
@@ -299,7 +303,7 @@ const { coursId } = useParams<{ coursId: string }>();
                                        </TableCell>
                                        <TableCell>
   <IconButton
-    onClick={() => navigate(`/ListCours/Quizz/${q.id}/QuestionList`)}
+    onClick={() => navigate(`/ListCours/${q.cours}/Quizz/${q.id}/QuestionList`)}
     sx={{
       color: '#6d28d9',
       '&:hover': {
@@ -354,31 +358,51 @@ const { coursId } = useParams<{ coursId: string }>();
       </div>
 
       <Dialog open={openQuizzDialog} onClose={() => setOpenQuizzDialog(false)}>
-        <DialogTitle>{currentQuizz.id ? "Modifier un Quizz" : "Ajouter un Quizz"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Title"
-            value={currentQuizz.title}
-            onChange={(e) => setCurrentQuizz({ ...currentQuizz, title: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Cours"
-            type="number"
-            value={currentQuizz.cours}
-            onChange={(e) => setCurrentQuizz({ ...currentQuizz, cours: +e.target.value })}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenQuizzDialog(false)}>Annuler</Button>
-          <Button onClick={handleSaveQuizz} color="primary">
-            {currentQuizz.id ? "Modifier" : "Enregistrer"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+  <DialogTitle>{currentQuizz.id ? "Modifier un Quizz" : "Ajouter un Quizz"}</DialogTitle>
+  <DialogContent>
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Titre du Quizz"
+      value={currentQuizz.title}
+      onChange={(e) => setCurrentQuizz({ ...currentQuizz, title: e.target.value })}
+      variant="outlined"
+      required
+    />
+    <FormControl fullWidth margin="normal" variant="outlined">
+      <InputLabel id="course-select-label">Cours</InputLabel>
+      <Select
+        labelId="course-select-label"
+        label="Cours"
+        value={currentQuizz.cours || ""}
+        onChange={(e) => setCurrentQuizz({ ...currentQuizz, cours: +e.target.value })}
+        required
+      >
+        <MenuItem value="" disabled>
+          Sélectionner un cours
+        </MenuItem>
+        {cours.map((course) => (
+          <MenuItem key={course.id} value={course.id}>
+            {course.title}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenQuizzDialog(false)} color="secondary">
+      Annuler
+    </Button>
+    <Button
+      onClick={handleSaveQuizz}
+      color="primary"
+      variant="contained"
+      disabled={!currentQuizz.title || !currentQuizz.cours}
+    >
+      {currentQuizz.id ? "Modifier" : "Enregistrer"}
+    </Button>
+  </DialogActions>
+</Dialog>
       <Dialog open={open} onClose={() => setOpen(false)}>
               <DialogTitle>Ajouter une Question</DialogTitle>
               <DialogContent>

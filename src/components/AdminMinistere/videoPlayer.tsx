@@ -8,7 +8,7 @@ interface VideoPlayerProps {
   videoUrl: string;
   pauses: Pause[];
   role: string;
-  onComplete?: (responses: InteractionResponse[], isFullyCompleted: boolean) => void;
+  onComplete?: (responses: InteractionResponse[], isFullyCompleted: boolean, normalizedPauses: Pause[]) => void;
   onGridSelect?: (tempsPause: number, row: number, col: number, updatedPauses: Pause[]) => void;
 }
 
@@ -25,11 +25,18 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
   const [volume, setVolume] = useState(1);
   const [popupMessage, setPopupMessage] = useState<string | null>(null);
   const [activePause, setActivePause] = useState<Pause | null>(null);
-  const [updatedPauses, setUpdatedPauses] = useState<Pause[]>([]); // Store updated pauses
-  const [adminClickCount, setAdminClickCount] = useState(0); // Track admin clicks
-
+  const [updatedPauses, setUpdatedPauses] = useState<Pause[]>([]);
+  const [adminClickCount, setAdminClickCount] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [completedPauses, setCompletedPauses] = useState<number[]>([]);
+  const [timer, setTimer] = useState(0);
+       
   const isAdmin = role === 'Admin Ministère';
 
+  // Normalisation des pauses
   const normalizedPauses: Pause[] = pauses.map((pause: any) => ({
     tempsPause: pause.temps_pause || 0,
     information: pause.information || "",
@@ -40,9 +47,7 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
   }));
 
   useEffect(() => {
-    console.log('Raw Pauses:', pauses);
-    console.log('Normalized Pauses:', normalizedPauses);
-    setUpdatedPauses(normalizedPauses); // Initialize with normalized pauses
+    setUpdatedPauses(normalizedPauses);
   }, [pauses]);
 
   useEffect(() => {
@@ -61,18 +66,23 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
       const time = video.currentTime;
       setCurrentTime(time);
 
-      const pause = normalizedPauses.find(p =>
-        time >= (p.tempsPause as number) - 0.1 &&
-        time <= (p.tempsPause as number) + 0.1
+      // Trouver la prochaine pause non complétée
+      const nextPause = normalizedPauses.find(p => 
+        p.tempsPause !== null && 
+        time >= p.tempsPause - 0.5 && // Tolérance augmentée
+        time <= p.tempsPause + 0.5 &&
+        !completedPauses.includes(p.tempsPause)
       );
-      if (pause && !activePause && isPlaying) {
-        video.pause();
-        setIsPlaying(false);
-        setActivePause(pause);
+
+      // Débogage
+      console.log("Temps courant:", time, "Pause détectée:", nextPause?.tempsPause, "Completed:", completedPauses, "Active:", activePause);
+
+      if (nextPause && !activePause) { // Supprimer la condition isPlaying
+        setActivePause(nextPause);
         if (isAdmin) {
           setPopupMessage("Sélectionnez la grille correcte pour cette pause");
         } else {
-          setPopupMessage("Cliquez sur la bonne grille pour continuer");
+          setPopupMessage("Cliquez sur la bonne grille");
         }
       }
     };
@@ -80,27 +90,52 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadeddata', () => setDuration(video.duration));
     video.addEventListener('error', () => setVideoError('Erreur de chargement vidéo'));
+
+    // Optionnel : démarrer la vidéo automatiquement au montage
+    // video.play().then(() => setIsPlaying(true)).catch(err => console.error('Auto-play failed:', err));
+
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('loadeddata', () => {});
       video.removeEventListener('error', () => {});
     };
-  }, [videoUrl, normalizedPauses, isPlaying, activePause, isAdmin]);
+  }, [videoUrl, normalizedPauses, activePause, isAdmin, hasInteracted, completedPauses]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleGridClick = (rowIndex: number, colIndex: number) => {
-    if (!activePause) return;
+    if (!activePause || !videoRef.current) return;
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
+    setHasInteracted(true);
+    setCompletedPauses(prev => [...prev, activePause.tempsPause!]);
 
     if (isAdmin) {
-      console.log(`Admin selected grid (${rowIndex}, ${colIndex}) for pause at ${activePause.tempsPause}s`);
       const newUpdatedPauses = updatedPauses.map(pause =>
         pause.tempsPause === activePause.tempsPause
           ? { ...pause, correctGrid: { row: rowIndex, col: colIndex } }
           : pause
       );
-      setUpdatedPauses(newUpdatedPauses); // Update state progressively
-      setAdminClickCount(prev => prev + 1); // Increment click count
+      setUpdatedPauses(newUpdatedPauses);
+      setAdminClickCount(prev => prev + 1);
 
-      // Check if admin has clicked as many times as there are pauses
       if (adminClickCount + 1 === normalizedPauses.length && onGridSelect) {
         newUpdatedPauses.forEach(pause => {
           if (pause.correctGrid) {
@@ -116,22 +151,13 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
       } else {
         setPopupMessage(`Grille (${rowIndex}, ${colIndex}) définie pour la pause à ${activePause.tempsPause}s`);
       }
-
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.play();
-          setIsPlaying(true);
-          setActivePause(null);
-          setPopupMessage(null);
-        }
-      }, 2000);
     } else {
       const isCorrectGrid = activePause.correctGrid &&
                            activePause.correctGrid.row === rowIndex &&
                            activePause.correctGrid.col === colIndex;
 
       const response: InteractionResponse = {
-        interactionId: activePause.tempsPause.toString(),
+        interactionId: activePause.tempsPause ? activePause.tempsPause.toString() : '',
         timestamp: Date.now(),
         success: isCorrectGrid ?? false,
         position: { row: rowIndex, col: colIndex }
@@ -140,18 +166,39 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
       setUserResponses(prev => [...prev, response]);
 
       if (isCorrectGrid) {
+        videoRef.current.pause();
+        setIsPlaying(false);
         setPopupMessage(activePause.information);
-        setTimeout(() => {
+
+        timeoutRef.current = setTimeout(() => {
           if (videoRef.current) {
-            videoRef.current.play();
-            setIsPlaying(true);
-            setActivePause(null);
-            setPopupMessage(null);
+            videoRef.current.play()
+              .then(() => {
+                setIsPlaying(true);
+                setPopupMessage(null);
+                setActivePause(null);
+              })
+              .catch(error => {
+                console.error('Erreur de lecture:', error);
+                setPopupMessage("Cliquez pour continuer");
+              });
           }
-        }, 4000);
+        }, 3000);
       } else {
-        setPopupMessage("Mauvaise grille )😜");
-        setTimeout(() => setPopupMessage("Cliquez sur la bonne grille pour continuer"), 1000);
+        setPopupMessage("Mauvaise réponse, attendez...");
+        setTimer(0);
+        let progress = 0;
+        timerIntervalRef.current = setInterval(() => {
+          progress += 3.33;
+          setTimer(progress);
+          if (progress >= 100) {
+            clearInterval(timerIntervalRef.current!);
+            timerIntervalRef.current = null;
+            setPopupMessage(null);
+            setActivePause(null);
+            setTimer(0);
+          }
+        }, 100);
       }
     }
   };
@@ -191,21 +238,34 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
 
   const togglePlay = () => {
     if (!videoRef.current) return;
+    
     if (isPlaying) {
       videoRef.current.pause();
       setIsPlaying(false);
-    } else if (!activePause) {
-      videoRef.current.play().catch(() => setVideoError('Erreur de lecture'));
-      setIsPlaying(true);
+    } else {
+      if (videoRef.current.currentTime === 0 || videoRef.current.ended) {
+        setUserResponses([]);
+        setActivePause(null);
+        setPopupMessage(null);
+        setHasInteracted(false);
+        setCompletedPauses([]);
+        setTimer(0);
+      }
+      videoRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(error => {
+          console.error('Playback error:', error);
+          setVideoError('Cliquez pour démarrer la vidéo');
+        });
     }
   };
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (!isFullscreen) {
-      containerRef.current.requestFullscreen();
+      containerRef.current.requestFullscreen().catch(err => console.error('Fullscreen failed:', err));
     } else {
-      document.exitFullscreen();
+      document.exitFullscreen().catch(err => console.error('Exit fullscreen failed:', err));
     }
   };
 
@@ -251,17 +311,78 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
   const handleVideoEnd = () => {
     if (!onComplete) return;
 
-    const pauseIds = normalizedPauses.map(p => p.tempsPause.toString());
     const successfulResponses = userResponses.filter(r => r.success);
-    const hasAllCorrect = pauseIds.every(id =>
-      successfulResponses.some(r => r.interactionId === id)
-    );
+    const hasAllCorrect = normalizedPauses.length === successfulResponses.length;
+    onComplete(userResponses, hasAllCorrect, normalizedPauses);
+    setShowSummary(true);
+  };
 
-    onComplete(userResponses, hasAllCorrect);
+  const renderSummary = () => {
+    const correctResponses = userResponses.filter(r => r.success);
+
+    return (
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-90 text-white p-6 flex flex-col items-center justify-center z-50">
+        <h2 className="text-2xl font-bold mb-4">Résumé</h2>
+        
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-2">Bonnes réponses: {correctResponses.length}/{normalizedPauses.length}</h3>
+          {correctResponses.length > 0 ? (
+            <ul className="list-disc pl-5">
+              {correctResponses.map((response, index) => (
+                <li key={index} className="mb-1">
+                  {formatTime(parseFloat(response.interactionId))} - Grille ({response.position.row}, {response.position.col})
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Aucune bonne réponse</p>
+          )}
+        </div>
+
+        <button
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          onClick={() => {
+            setShowSummary(false);
+            if (videoRef.current) {
+              videoRef.current.currentTime = 0;
+              togglePlay();
+            }
+          }}
+        >
+          Recommencer
+        </button>
+      </div>
+    );
+  };
+
+  const TimerCircle = ({ progress }: { progress: number }) => {
+    return (
+      <div className="flex justify-center items-center">
+        <div className="relative">
+          <svg width="100" height="100" viewBox="0 0 100 100" className="rotate-90">
+            <circle cx="50" cy="50" r="45" stroke="#e6e6e6" strokeWidth="10" fill="none" />
+            <circle
+              cx="50"
+              cy="50"
+              r="45"
+              stroke="#ff0000"
+              strokeWidth="10"
+              fill="none"
+              strokeDasharray="283"
+              strokeDashoffset={(1 - progress / 100) * 283}
+              style={{ transition: 'stroke-dashoffset 0.1s ease' }}
+            />
+          </svg>
+          <span className="absolute top-0 left-0 w-full h-full flex justify-center items-center text-white font-bold">
+            {Math.floor(progress)}%
+          </span>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div ref={containerRef} className="relative bg-black rounded-xl" style={{ width: '100%', height: 'auto' }}>
+    <div ref={containerRef} className="relative bg-black rounded-xl overflow-hidden" style={{ width: '100%', height: 'auto' }}>
       {videoError ? (
         <p className="text-red-500 p-4">{videoError}</p>
       ) : (
@@ -272,43 +393,50 @@ function VideoPlayer({ videoUrl, pauses, role, onComplete, onGridSelect }: Video
             src={videoUrl}
             controls={false}
             playsInline
+            webkit-playsinline="true"
+            muted={isMuted}
             onEnded={handleVideoEnd}
           />
           {renderGrids()}
           {popupMessage && (
-            <div
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 text-white p-4 rounded-lg z-50"
-              style={{ pointerEvents: 'none' }}
-            >
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 bg-opacity-75 text-white p-4 rounded-lg z-50">
               {popupMessage}
+              {timer > 0 && timer < 100 && <TimerCircle progress={timer} />}
             </div>
           )}
-          <div className="absolute bottom-4 left-0 right-0 flex justify-center items-center gap-4 bg-gray-800 bg-opacity-75 p-2 rounded-t z-50">
-            <button onClick={seekBackward}><Rewind /></button>
-            <button onClick={togglePlay}>{isPlaying ? <PauseIcon /> : <Play />}</button>
-            <button onClick={seekForward}><FastForward /></button>
-            <button onClick={toggleMute}>{isMuted ? <VolumeX /> : <Volume2 />}</button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={volume}
-              onChange={handleVolumeChange}
-              className="w-24"
-            />
-            <div className="text-white text-sm">
-              {formatTime(currentTime)} / {formatTime(duration)}
+          {showSummary && renderSummary()}
+          <div className="absolute bottom-0 left-0 right-0 bg-gray-800 bg-opacity-75 p-2 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <button onClick={togglePlay} className="p-1">
+                {isPlaying ? <PauseIcon size={20} /> : <Play size={20} />}
+              </button>
+              <button onClick={toggleMute} className="p-1">
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={volume}
+                onChange={handleVolumeChange}
+                className="w-20"
+              />
+              <span className="text-white text-sm">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
             </div>
-            <input
-              type="range"
-              min="0"
-              max={duration || 0}
-              value={currentTime}
-              onChange={handleSeek}
-              className="w-48"
-            />
-            <button onClick={toggleFullscreen}>{isFullscreen ? <Minimize /> : <Maximize />}</button>
+            <div className="flex items-center space-x-2">
+              <button onClick={seekBackward} className="p-1">
+                <Rewind size={20} />
+              </button>
+              <button onClick={seekForward} className="p-1">
+                <FastForward size={20} />
+              </button>
+              <button onClick={toggleFullscreen} className="p-1">
+                {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+              </button>
+            </div>
           </div>
         </>
       )}

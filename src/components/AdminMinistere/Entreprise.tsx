@@ -18,7 +18,11 @@ import {
   Checkbox,
   Alert,
   Snackbar,
-  ButtonBase
+  ButtonBase,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select
 } from '@mui/material';
 import { Edit, Delete, Search } from '@mui/icons-material';
 import { styled } from '@mui/system';
@@ -370,101 +374,108 @@ const Entreprises = () => {
         </StyledTableContainer>
       </div>
       <Dialog open={openCompanyDialog} onClose={() => setOpenCompanyDialog(false)}>
-        <DialogTitle>{currentCompany.id ? "Modifier une entreprise" : "Ajouter une entreprise et un administrateur"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Nom de l'entreprise"
-            fullWidth
-            value={currentCompany.name}
-            onChange={(e) => setCurrentCompany({ ...currentCompany, name: e.target.value })}
-            margin="normal"
-          />
-          <TextField
-            label="Adresse"
-            fullWidth
-            value={currentCompany.adresse}
-            onChange={(e) => setCurrentCompany({ ...currentCompany, adresse: e.target.value })}
-            margin="normal"
-          />
-          <TextField
-            label="Numéro de téléphone"
-            fullWidth
-            value={currentCompany.phone_number}
-            onChange={(e) => setCurrentCompany({ ...currentCompany, phone_number: e.target.value })}
-            margin="normal"
-          />
-          <TextField
-            label="Nombre d'employés"
-            fullWidth
-            type="number"
-            value={currentCompany.nb_emp}
-            onChange={(e) => setCurrentCompany({ ...currentCompany, nb_emp: +e.target.value })}
-            margin="normal"
-          />
-          <TextField
-            label="Domaine (ID)"
-            fullWidth
-            type="number"
-            value={currentCompany.domaine}
-            onChange={(e) => setCurrentCompany({ ...currentCompany, domaine: +e.target.value })}
-            margin="normal"
-          />
+  <DialogTitle>{currentCompany.id ? "Modifier une entreprise" : "Ajouter une entreprise et un administrateur"}</DialogTitle>
+  <DialogContent>
+    <TextField
+      label="Nom de l'entreprise"
+      fullWidth
+      value={currentCompany.name}
+      onChange={(e) => setCurrentCompany({ ...currentCompany, name: e.target.value })}
+      margin="normal"
+    />
+    <TextField
+      label="Adresse"
+      fullWidth
+      value={currentCompany.adresse}
+      onChange={(e) => setCurrentCompany({ ...currentCompany, adresse: e.target.value })}
+      margin="normal"
+    />
+    <TextField
+      label="Numéro de téléphone"
+      fullWidth
+      value={currentCompany.phone_number}
+      onChange={(e) => setCurrentCompany({ ...currentCompany, phone_number: e.target.value })}
+      margin="normal"
+    />
+    <TextField
+      label="Nombre d'employés"
+      fullWidth
+      type="number"
+      value={currentCompany.nb_emp}
+      onChange={(e) => setCurrentCompany({ ...currentCompany, nb_emp: +e.target.value })}
+      margin="normal"
+    />
+    {/* Replaced TextField with Select for Domain */}
+    <FormControl fullWidth margin="normal">
+      <InputLabel id="domain-select-label">Nom de domaine</InputLabel>
+      <Select
+        labelId="domain-select-label"
+        label="Nom de domaine"
+        value={currentCompany.domaine || ""}
+        onChange={(e) => setCurrentCompany({ ...currentCompany, domaine: Number(e.target.value) })}
+      >
+        {domaine.map((domain) => (
+          <MenuItem key={domain.id} value={domain.id}>
+            {domain.nom}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
 
-          {!currentCompany.id && (
-            <ButtonBase
-              onClick={handleGenerateAdminCredentials}
-              sx={{
-                padding: '10px 20px',
-                backgroundColor: 'primary.main',
-                color: 'white',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                '&:hover': { backgroundColor: 'primary.dark' },
-              }}
-            >
-              Générer les informations de l'administrateur
-            </ButtonBase>
-          )}
+    {!currentCompany.id && (
+      <ButtonBase
+        onClick={handleGenerateAdminCredentials}
+        sx={{
+          padding: '10px 20px',
+          backgroundColor: 'primary.main',
+          color: 'white',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          '&:hover': { backgroundColor: 'primary.dark' },
+        }}
+      >
+        Générer les informations de l'administrateur
+      </ButtonBase>
+    )}
 
-          {!currentCompany.id && (
-            <>
-              <TextField
-                placeholder="Email de l'administrateur"
-                fullWidth
-                value={adminEntreprise.email}
-                onChange={(e) => setAdminEntreprise({ ...adminEntreprise, email: e.target.value })}
-
-                margin="normal"
-              />
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  value={adminEntreprise.password}
-                  onChange={(e) => setAdminEntreprise({ ...adminEntreprise, password: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                  placeholder=" your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCompanyDialog(false)} color="primary">
-            Annuler
-          </Button>
-          <Button onClick={handleSaveCompany} color="primary">
-            {currentCompany.id ? "Modifier" : "Enregistrer"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+    {!currentCompany.id && (
+      <>
+        <TextField
+          placeholder="Email de l'administrateur"
+          fullWidth
+          value={adminEntreprise.email}
+          onChange={(e) => setAdminEntreprise({ ...adminEntreprise, email: e.target.value })}
+          margin="normal"
+        />
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            id="password"
+            value={adminEntreprise.password}
+            onChange={(e) => setAdminEntreprise({ ...adminEntreprise, password: e.target.value })}
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+            placeholder="your password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+          >
+            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        </div>
+      </>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenCompanyDialog(false)} color="primary">
+      Annuler
+    </Button>
+    <Button onClick={handleSaveCompany} color="primary">
+      {currentCompany.id ? "Modifier" : "Enregistrer"}
+    </Button>
+  </DialogActions>
+</Dialog>
 
       <Snackbar
         open={!!message}

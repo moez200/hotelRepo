@@ -6,7 +6,7 @@ const API_URL = "http://localhost:8000/users/"; // Remplace par ton URL réelle
 
 export const apprenantService = {
   getAll: async (): Promise<Apprenant[]> => {
-    const response = await axios.get<Apprenant[]>(`${API_URL}apprenants/`);
+    const response = await api.get<Apprenant[]>(`${API_URL}apprenants/`);
     return response.data as Apprenant[]; // On s'assure que response.data est bien du type Apprenant[]
   },
 

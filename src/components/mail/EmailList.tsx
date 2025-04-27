@@ -4,18 +4,19 @@ import { Search, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { emails } from '../../services/mail.service';
 import { Email } from '../../types/auth';
+import EmailDetail from './EmailDetail';
 
 type EmailType = 'received' | 'sent' | 'favorites';
 
 interface EmailListProps {
-  emailType: EmailType; // Prop to determine which emails to fetch
-  onEmailTypeChange?: (type: EmailType) => void; // Optional callback for parent
+  emailType: EmailType;
 }
 
 const EmailList = ({ emailType }: EmailListProps) => {
   const [emailList, setEmailList] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
   useEffect(() => {
     const fetchEmails = async () => {
@@ -30,7 +31,7 @@ const EmailList = ({ emailType }: EmailListProps) => {
             break;
           case 'received':
           default:
-            data = await emails.getReceived(); // Default to received (Inbox)
+            data = await emails.getReceived();
             break;
         }
         setEmailList(data);
@@ -42,7 +43,7 @@ const EmailList = ({ emailType }: EmailListProps) => {
     };
 
     fetchEmails();
-  }, [emailType]); // Re-fetch when emailType changes
+  }, [emailType]);
 
   const handleToggleFavorite = async (id: number, currentFavorite: boolean) => {
     try {
@@ -55,6 +56,25 @@ const EmailList = ({ emailType }: EmailListProps) => {
     } catch (err) {
       console.error('Failed to toggle favorite:', err);
     }
+  };
+
+  const handleEmailClick = (email: Email) => {
+    setSelectedEmail(email);
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedEmail(null);
+  };
+
+  const handleReply = (emailId: number) => {
+    // Vous pouvez ajouter une logique supplémentaire ici si nécessaire
+    console.log('Replying to email:', emailId);
+    setSelectedEmail(null); // Fermer les détails après réponse
+  };
+
+  const handleForward = (emailId: number) => {
+    console.log('Forwarding email:', emailId);
+    setSelectedEmail(null); // Fermer les détails après transfert
   };
 
   if (loading) {
@@ -80,6 +100,14 @@ const EmailList = ({ emailType }: EmailListProps) => {
 
   return (
     <div className="p-4 pr-5 min-h-screen w-3/4">
+      {selectedEmail && (
+        <EmailDetail
+          email={selectedEmail}
+          onClose={handleCloseDetail}
+          onReply={handleReply}
+          onForward={handleForward}
+        />
+      )}
       <div className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
@@ -96,7 +124,11 @@ const EmailList = ({ emailType }: EmailListProps) => {
           <p className="text-gray-500 p-4">No emails found.</p>
         ) : (
           emailList.map((email) => (
-            <div key={email.id} className="p-4 hover:bg-gray-50 cursor-pointer border-b flex items-center justify-between">
+            <div
+              key={email.id}
+              onClick={() => handleEmailClick(email)}
+              className="p-4 hover:bg-gray-50 cursor-pointer border-b flex items-center justify-between"
+            >
               <div className="flex items-center gap-3 flex-1">
                 <img
                   src={`https://ui-avatars.com/api/?name=${encodeURIComponent(email.sender_username)}&background=random`}
@@ -114,7 +146,10 @@ const EmailList = ({ emailType }: EmailListProps) => {
                 </div>
               </div>
               <button
-                onClick={() => handleToggleFavorite(email.id, email.is_favorite)}
+                onClick={(e) => {
+                  e.stopPropagation(); // Empêche l'ouverture des détails
+                  handleToggleFavorite(email.id, email.is_favorite);
+                }}
                 className="p-2 hover:bg-gray-100 rounded-full"
               >
                 <Star

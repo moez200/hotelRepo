@@ -91,7 +91,7 @@ export const updateChapitrePauses = async (
 ): Promise<Chapitre> => { // Return Chapitre instead of Pause
   try {
     const pausesData: PauseData[] = updatedPauses
-      .filter(pause => pause.tempsPause !== null && pause.tempsPause !== "" && !isNaN(Number(pause.tempsPause)))
+      .filter(pause => pause.tempsPause !== null && pause.tempsPause !== null && !isNaN(Number(pause.tempsPause)))
       .map(pause => ({
         temps_pause: Number(pause.tempsPause),
         information: pause.information || "",

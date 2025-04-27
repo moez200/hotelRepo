@@ -20,11 +20,18 @@ import {
   Typography,
   Box,
   Switch,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Chip,
 } from "@mui/material";
 import { Edit, Delete, Search } from "@mui/icons-material";
-import { QuestionChapitre, QuestionCour } from "../../types/auth";
+import { QuestionChapitre, QuizzChapitre } from "../../types/auth";
 import { useParams, useNavigate } from "react-router-dom";
 import { addQuestionToQuizz, deleteQuestion, getQuestionsByQuizz, updateQuestion } from "../../services/questionchapitre";
+
+import { getQuizzByChapitre } from "../../services/quizzchapitre";
 
 // Style personnalisé pour le tableau
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
@@ -42,15 +49,23 @@ const HeaderCell = styled(TableCell)(({ theme }) => ({
   color: '#0f172a',
   borderBottom: '2px solid #e2e8f0',
 }));
+const StatusChip = styled(Chip)({
+  fontSize: '0.75rem',
+  height: '24px',
+  '& .MuiChip-label': {
+    padding: '0 8px',
+  },
+});
 
 const QuestionsChapitre = () => {
-  const { QuizzId } = useParams<{ QuizzId: string }>();
+  const { QuizzId, chapitreId } = useParams<{ QuizzId: string; chapitreId: string }>();
+   
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<QuestionChapitre[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
- 
+   const [quizzes, setQuizzes] = useState<QuizzChapitre[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +84,7 @@ const QuestionsChapitre = () => {
 
   useEffect(() => {
     fetchQuestions();
+    fetchQuizzes();
   }, [currentPage, rowsPerPage, searchTerm]);
 
   const fetchQuestions = async () => {
@@ -94,6 +110,24 @@ const QuestionsChapitre = () => {
       setLoading(false);
     }
   };
+ const fetchQuizzes = async () => {
+    try {
+      setLoading(true);
+      if (!chapitreId || isNaN(Number(chapitreId))) {
+        setError("Invalid chapitre ID");
+        return;
+      }
+      
+      const chapitreIdNumber = parseInt(chapitreId, 10);
+      const data = await getQuizzByChapitre(chapitreIdNumber);
+      setQuizzes(data);
+    } catch (error) {
+      setError("Error fetching quizzes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -229,7 +263,15 @@ const QuestionsChapitre = () => {
                 <TableCell>{question.title}</TableCell>
                 <TableCell>{`${question.op1}, ${question.op2}, ${question.op3}, ${question.op4}`}</TableCell>
                 <TableCell align="center">{question.rep}</TableCell>
-                <TableCell align="center">{question.quizz}</TableCell>
+                  <TableCell>
+                                                        <StatusChip
+                                                          label={quizzes.find((g) => g.id === question.quizz)?.title || "Inconnu"}
+                                                          sx={{
+                                                            bgcolor: '#f5f3ff',
+                                                            color: '#6d28d9',
+                                                          }}
+                                                        />
+                                                      </TableCell>
                 <TableCell align="center">
                   <IconButton onClick={() => {
                     setNewQuestion(question);
@@ -257,74 +299,101 @@ const QuestionsChapitre = () => {
         onRowsPerPageChange={handleChangeRowsPerPage}
       />
 
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>{newQuestion.id ? "Modifier" : "Ajouter"} une Question</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Titre"
-            value={newQuestion.title}
-            onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Option 1"
-            value={newQuestion.op1}
-            onChange={(e) => setNewQuestion({ ...newQuestion, op1: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Option 2"
-            value={newQuestion.op2}
-            onChange={(e) => setNewQuestion({ ...newQuestion, op2: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Option 3"
-            value={newQuestion.op3}
-            onChange={(e) => setNewQuestion({ ...newQuestion, op3: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Option 4"
-            value={newQuestion.op4}
-            onChange={(e) => setNewQuestion({ ...newQuestion, op4: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Réponse correcte"
-            value={newQuestion.rep}
-            onChange={(e) => setNewQuestion({ ...newQuestion, rep: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Quizz ID"
-            value={newQuestion.quizz}
-            onChange={(e) => setNewQuestion({ ...newQuestion, quizz: Number(e.target.value) })}
-          />
-           <TextField
-                   label="image"
-                   fullWidth
-                   value={newQuestion?.imagecour}
-                   onChange={(e) => setNewQuestion({ ...newQuestion, imagecour: e.target.value })}
-                   margin="normal"
-                 />
-             
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Annuler</Button>
-          <Button onClick={handleSave} color="primary">
-            {newQuestion.id ? "Modifier" : "Enregistrer"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+<Dialog open={open} onClose={() => setOpen(false)}>
+  <DialogTitle>{newQuestion.id ? "Modifier" : "Ajouter"} une Question</DialogTitle>
+  <DialogContent>
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Titre"
+      value={newQuestion.title}
+      onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
+      variant="outlined"
+      required
+    />
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Option 1"
+      value={newQuestion.op1}
+      onChange={(e) => setNewQuestion({ ...newQuestion, op1: e.target.value })}
+      variant="outlined"
+    />
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Option 2"
+      value={newQuestion.op2}
+      onChange={(e) => setNewQuestion({ ...newQuestion, op2: e.target.value })}
+      variant="outlined"
+    />
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Option 3"
+      value={newQuestion.op3}
+      onChange={(e) => setNewQuestion({ ...newQuestion, op3: e.target.value })}
+      variant="outlined"
+    />
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Option 4"
+      value={newQuestion.op4}
+      onChange={(e) => setNewQuestion({ ...newQuestion, op4: e.target.value })}
+      variant="outlined"
+    />
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Réponse correcte"
+      value={newQuestion.rep}
+      onChange={(e) => setNewQuestion({ ...newQuestion, rep: e.target.value })}
+      variant="outlined"
+      required
+    />
+    <FormControl fullWidth margin="normal" variant="outlined">
+      <InputLabel id="quiz-select-label">Quizz</InputLabel>
+      <Select
+        labelId="quiz-select-label"
+        label="Quizz"
+        value={newQuestion.quizz || ''}
+        onChange={(e) => setNewQuestion({ ...newQuestion, quizz: Number(e.target.value) })}
+        required
+      >
+        <MenuItem value="" disabled>
+          Sélectionner un quizz
+        </MenuItem>
+        {quizzes.map((quiz) => (
+          <MenuItem key={quiz.id} value={quiz.id}>
+            {quiz.title}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+    <TextField
+      fullWidth
+      margin="normal"
+      label="Image"
+      value={newQuestion.imagecour || ''}
+      onChange={(e) => setNewQuestion({ ...newQuestion, imagecour: e.target.value })}
+      variant="outlined"
+    />
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpen(false)} color="secondary">
+      Annuler
+    </Button>
+    <Button
+      onClick={handleSave}
+      color="primary"
+      variant="contained"
+      disabled={!newQuestion.title || !newQuestion.quizz || !newQuestion.rep}
+    >
+      {newQuestion.id ? "Modifier" : "Enregistrer"}
+    </Button>
+  </DialogActions>
+</Dialog>
 
       {/* Snackbar */}
       <Snackbar open={!!message} autoHideDuration={6000} onClose={() => setMessage('')}>

@@ -1,9 +1,8 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle, XCircle, ArrowRight } from 'lucide-react';
-import { ReactElement, JSXElementConstructor, ReactNode, ReactPortal, Key } from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { quizService } from '../../services/responseQuizz';
-import { CourseQuizResponse, QuizResponse } from '../../types/auth';
+import { CourseQuizResponse, InteractionResponse2 } from '../../types/auth';
 
 function CourQuizResult() {
   const { coursId } = useParams();
@@ -25,14 +24,13 @@ function CourQuizResult() {
 
   // Fonction pour créer une nouvelle réponse
   const createCourseQuizResponse = async () => {
-    // Vérifier le verrou avant de procéder
     if (isCreatingRef.current) {
       console.log('Création déjà en cours, ignorée');
       return;
     }
 
     try {
-      isCreatingRef.current = true; // Activer le verrou
+      isCreatingRef.current = true;
       const status = score === 100 ? 'Completed' : 'In Progress';
       const quizResponseData: Partial<CourseQuizResponse> = {
         course: parseInt(coursId!),
@@ -48,19 +46,18 @@ function CourQuizResult() {
       setError('Erreur lors de la création du QuizResponse');
       console.error('Erreur dans le composant:', error);
     } finally {
-      isCreatingRef.current = false; // Désactiver le verrou
+      isCreatingRef.current = false;
     }
-  };
-
-  // Gérer la logique de création
-  const handleCreateQuizResponse = async () => {
-    await createCourseQuizResponse();
   };
 
   // Appeler la fonction lors du montage du composant
   useEffect(() => {
     handleCreateQuizResponse();
-  }, []); // Exécuté une fois au montage
+  }, []);
+
+  const handleCreateQuizResponse = async () => {
+    await createCourseQuizResponse();
+  };
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -74,11 +71,9 @@ function CourQuizResult() {
         </div>
 
         <div className="p-8">
-          {/* Afficher la réponse ou l'erreur si disponible */}
           {quizResponse && (
             <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg">
               <p>Résultat enregistré avec succès :</p>
-             
               <p>Cours: {quizResponse.course}</p>
               <p>Titre: {quizResponse.title}</p>
               <p>Score: {quizResponse.score}</p>
@@ -95,45 +90,14 @@ function CourQuizResult() {
             {feedback.map(
               (
                 item: {
-                  correct: any;
-                  question:
-                    | string
-                    | number
-                    | boolean
-                    | ReactElement<any, string | JSXElementConstructor<any>>
-                    | Iterable<ReactNode>
-                    | ReactPortal
-                    | null
-                    | undefined;
-                  userAnswer:
-                    | string
-                    | number
-                    | boolean
-                    | ReactElement<any, string | JSXElementConstructor<any>>
-                    | Iterable<ReactNode>
-                    | ReactPortal
-                    | null
-                    | undefined;
-                  correctAnswer:
-                    | string
-                    | number
-                    | boolean
-                    | ReactElement<any, string | JSXElementConstructor<any>>
-                    | Iterable<ReactNode>
-                    | ReactPortal
-                    | null
-                    | undefined;
-                  explanation:
-                    | string
-                    | number
-                    | boolean
-                    | ReactElement<any, string | JSXElementConstructor<any>>
-                    | Iterable<ReactNode>
-                    | ReactPortal
-                    | null
-                    | undefined;
+                  correct: boolean;
+                  question: string;
+                  userAnswer: string;
+                  correctAnswer: string;
+                  explanation: string;
+                  videoResponses: InteractionResponse2[];
                 },
-                index: Key | null | undefined
+                index: number
               ) => (
                 <div key={index} className="border rounded-lg p-6">
                   <div className="flex items-start gap-4">
@@ -144,11 +108,32 @@ function CourQuizResult() {
                     )}
                     <div>
                       <h3 className="font-semibold mb-2">{item.question}</h3>
-                      <p className="text-gray-600 mb-2">Votre réponse: {item.userAnswer}</p>
-                      {!item.correct && (
+                      {item.userAnswer && (
+                        <p className="text-gray-600 mb-2">Votre réponse: {item.userAnswer}</p>
+                      )}
+                      {!item.correct && item.correctAnswer && (
                         <p className="text-green-600 mb-2">
                           Réponse correcte: {item.correctAnswer}
                         </p>
+                      )}
+                      {item.videoResponses && item.videoResponses.length > 0 && (
+                        <div className="mt-2">
+                          <p className="font-semibold">Interactions vidéo :</p>
+                          {item.videoResponses.map((response, idx) => (
+                            <div key={idx} className="ml-4 mt-1">
+                              <p>
+                                Clic à {response.clickTime?.toFixed(2)}s (
+                                X: {response.clickX?.toFixed(0)}, Y: {response.clickY?.toFixed(0)}
+                                ) -{' '}
+                                {response.isValid ? (
+                                  <span className="text-green-600">Valide</span>
+                                ) : (
+                                  <span className="text-red-600">Non valide</span>
+                                )}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       )}
                       <p className="text-sm text-gray-500">{item.explanation}</p>
                     </div>
@@ -159,8 +144,6 @@ function CourQuizResult() {
           </div>
 
           <div className="flex justify-between items-center mt-8 pt-6 border-t">
-           
-
             <button
               onClick={() => navigate(`/course`)}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
