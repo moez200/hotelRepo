@@ -148,24 +148,23 @@ export interface Outz {
   cours: number;
 }
 
+export interface ClickableZone {
+  x: number;
+  y: number;
+  radius: number;
+  time: number;
+}
+
 export interface ClickableRegion {
   x: number;
   y: number;
   time: number;
 }
 
-export interface ClickableZone {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  time: number;
-}
-
 export interface InteractionResponse2 {
-  isValid: boolean;
   region: ClickableRegion | ClickableZone;
   clicked: boolean;
+  isValid: boolean;
   clickTime?: number;
   clickX?: number;
   clickY?: number;

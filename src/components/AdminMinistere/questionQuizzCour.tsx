@@ -6,7 +6,7 @@ import {
   Select, RadioGroup, FormControlLabel, Radio, Checkbox,
 } from '@mui/material';
 import { Edit, Delete, Search } from '@mui/icons-material';
-import { Outz, QuestionCour, ClickableZone } from '../../types/auth';
+import { Outz, QuestionCour, ClickableZone, InteractionResponse2 } from '../../types/auth';
 import questionService from '../../services/questions.service';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getOutzs } from '../../services/quizzCours.service';
@@ -352,7 +352,9 @@ const QuestionList = () => {
                         }
                         clickable_regions={question.clickable_regions || []}
                         clickable_zones={question.clickable_zones || []}
-                        role="admin_ministere"
+                        role="Admin Ministère"
+                        width="400px" // Largeur explicite
+                        height="auto" // Hauteur automatique (rapport 16:9)
                       />
                     ) : (
                       'Aucun média'
@@ -546,72 +548,66 @@ const QuestionList = () => {
             </Box>
           )}
           {mediaType === 'video' && (
-            <Box mt={2}>
-              <Button variant="contained" component="label" sx={{ backgroundColor: '#3b82f6', '&:hover': { backgroundColor: '#2563eb' } }}>
-                Choisir une vidéo
-                <input
-                  type="file"
-                  hidden
-                  accept="video/*"
-                  onChange={(e) => handleFileChange(e, 'video')}
-                />
-              </Button>
-              {newQuestion.video && (
-                <>
-                  <Typography variant="body2" mt={1} className="text-gray-600">
-                    Fichier sélectionné :{' '}
-                    {typeof newQuestion.video === 'string'
-                      ? newQuestion.video
-                      : newQuestion.video.name}
-                  </Typography>
-                  <Box mt={2} position="relative">
-                    <VideoPlayer
-                      videoUrl={
-                        typeof newQuestion.video === 'string'
-                          ? newQuestion.video
-                          : URL.createObjectURL(newQuestion.video)
-                      }
-                      clickable_regions={newQuestion.clickable_regions || []}
-                      clickable_zones={markedZones}
-                      role="admin_ministere"
-                      onInteraction={(responses: any[]) => {
-                        console.log('Interaction responses:', responses);
-                        setMarkedZones(
-                          responses
-                            .filter((r: { clicked: any; region: any; }) => r.clicked && 'width' in r.region)
-                            .map((r) => r.region as ClickableZone)
-                        );
-                        console.log('Updated markedZones:', markedZones);
-                      }}
-                    />
-                    <Box mt={1}>
-                      <Button
-                        variant="contained"
-                        color={isPlaying ? 'secondary' : 'primary'}
-                        onClick={togglePlay}
-                        disabled={!canPlay}
-                        aria-label={isPlaying ? 'Pause la vidéo' : 'Démarrer la vidéo'}
-                        sx={{ backgroundColor: isPlaying ? '#ef4444' : '#3b82f6', '&:hover': { backgroundColor: isPlaying ? '#dc2626' : '#2563eb' } }}
-                      >
-                        {isPlaying ? 'Pause' : 'Play'}
-                      </Button>
-                      {/* Debug button to simulate marking a zone */}
-                      <Button
-  variant="contained"
-  onClick={() => setMarkedZones([{ x: 100, y: 100, width: 200, height: 100, time: 5 }])}
-  sx={{ ml: 2, backgroundColor: '#10b981', '&:hover': { backgroundColor: '#059669' } }}
->
-  Simulate Marking a Zone
-</Button>
-                    </Box>
-                    <Typography variant="body2" mt={1} className="text-gray-600">
-                      Cliquez et faites glisser pour marquer des zones cliquables (x, y, largeur, hauteur, temps).
-                    </Typography>
-                  </Box>
-                </>
-              )}
-            </Box>
-          )}
+  <Box mt={2}>
+    <Button variant="contained" component="label" sx={{ backgroundColor: '#3b82f6', '&:hover': { backgroundColor: '#2563eb' } }}>
+      Choisir une vidéo
+      <input
+        type="file"
+        hidden
+        accept="video/*"
+        onChange={(e) => handleFileChange(e, 'video')}
+      />
+    </Button>
+    {newQuestion.video && (
+      <>
+        <Typography variant="body2" mt={1} className="text-gray-600">
+          Fichier sélectionné :{' '}
+          {typeof newQuestion.video === 'string'
+            ? newQuestion.video
+            : newQuestion.video.name}
+        </Typography>
+        <Box mt={2} position="relative">
+          <div className="relative bg-black rounded-xl overflow-hidden max-w-3xl w-full mx-auto">
+            <VideoPlayer
+              videoUrl={
+                typeof newQuestion.video === 'string'
+                  ? newQuestion.video
+                  : URL.createObjectURL(newQuestion.video)
+              }
+              clickable_regions={newQuestion.clickable_regions || []}
+              clickable_zones={markedZones}
+              role="Admin Ministère"
+              width="768px" // Largeur explicite
+              height="auto" // Hauteur automatique (rapport 16:9)
+              onInteraction={(responses: InteractionResponse2[]) => {
+                const newZones = responses
+                  .filter((r) => 'radius' in r.region)
+                  .map((r) => r.region as ClickableZone);
+                setMarkedZones(newZones);
+                console.log('Updated markedZones:', newZones);
+              }}
+            />
+          </div>
+          <Box mt={1}>
+            <Button
+              variant="contained"
+              color={isPlaying ? 'secondary' : 'primary'}
+              onClick={togglePlay}
+              disabled={!canPlay}
+              aria-label={isPlaying ? 'Pause la vidéo' : 'Démarrer la vidéo'}
+              sx={{ backgroundColor: isPlaying ? '#ef4444' : '#3b82f6', '&:hover': { backgroundColor: isPlaying ? '#dc2626' : '#2563eb' } }}
+            >
+              {isPlaying ? 'Pause' : 'Play'}
+            </Button>
+          </Box>
+          <Typography variant="body2" mt={1} className="text-gray-600">
+            Cliquez et faites glisser pour marquer des zones cliquables (x, y, rayon, temps).
+          </Typography>
+        </Box>
+      </>
+    )}
+  </Box>
+)}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)} sx={{ color: '#6b7280' }}>

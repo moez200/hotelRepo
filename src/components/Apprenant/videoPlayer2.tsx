@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import {
   Play, Pause as PauseIcon, Maximize, Minimize, Volume2, VolumeX, Rewind, FastForward,
@@ -10,8 +11,10 @@ interface VideoPlayerProps {
   clickable_regions?: ClickableRegion[];
   clickable_zones?: ClickableZone[];
   onInteraction?: (responses: InteractionResponse2[]) => void;
-  onEnded?: () => void; // Nouvelle prop pour la fin de la vidéo
+  onEnded?: () => void;
   role?: string;
+  width?: string | number; // Nouvelle prop pour la largeur
+  height?: string | number; // Nouvelle prop pour la hauteur
 }
 
 function VideoPlayer({
@@ -21,6 +24,8 @@ function VideoPlayer({
   onInteraction,
   onEnded,
   role = getAuthStore((state) => state.role) ?? 'defaultRole',
+  width = '896px', // Valeur par défaut équivalent à max-w-3xl
+  height = 'auto', // Par défaut, respecte le rapport d'aspect
 }: VideoPlayerProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -35,13 +40,20 @@ function VideoPlayer({
   const [popupMessage, setPopupMessage] = useState<string | null>(null);
   const [isMarking, setIsMarking] = useState(false);
   const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
-  const [markedZones, setMarkedZones] = useState<ClickableZone[]>(clickable_zones);
+  const [markedZones, setMarkedZones] = useState<ClickableZone[]>(
+    clickable_zones.filter((zone) =>
+      typeof zone.x === 'number' &&
+      typeof zone.y === 'number' &&
+      typeof zone.radius === 'number' &&
+      typeof zone.time === 'number'
+    )
+  );
 
-  const isAdmin = role === 'admin_ministere';
+  const isAdmin = role === 'Admin Ministère';
 
   const [interactionResponses, setInteractionResponses] = useState<InteractionResponse2[]>([
     ...clickable_regions.map((region) => ({ region, clicked: false, isValid: false })),
-    ...clickable_zones.map((zone) => ({ region: zone, clicked: false, isValid: false })),
+    ...markedZones.map((zone) => ({ region: zone, clicked: false, isValid: false })),
   ]);
 
   const CIRCLE_DIAMETER_PX = 150;
@@ -49,15 +61,16 @@ function VideoPlayer({
   const TIME_TOLERANCE = 3;
 
   useEffect(() => {
-    console.log('VideoPlayer - Props reçues:', { videoUrl, clickable_regions, clickable_zones, role });
-  }, [videoUrl, clickable_regions, clickable_zones, role]);
+    console.log('VideoPlayer - Rôle récupéré:', { role, isAdmin });
+    console.log('VideoPlayer - Props reçues:', { videoUrl, clickable_regions, clickable_zones, role, width, height });
+  }, [videoUrl, clickable_regions, clickable_zones, role, width, height]);
 
   useEffect(() => {
     setInteractionResponses([
       ...clickable_regions.map((region) => ({ region, clicked: false, isValid: false })),
-      ...clickable_zones.map((zone) => ({ region: zone, clicked: false, isValid: false })),
+      ...markedZones.map((zone) => ({ region: zone, clicked: false, isValid: false })),
     ]);
-  }, [clickable_regions, clickable_zones]);
+  }, [clickable_regions, markedZones]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -75,7 +88,7 @@ function VideoPlayer({
       const time = video.currentTime;
       setCurrentTime(time);
 
-      const allRegions = [...clickable_regions, ...clickable_zones];
+      const allRegions = [...clickable_regions, ...markedZones];
       allRegions.forEach((region) => {
         if (
           time > region.time + TIME_TOLERANCE &&
@@ -98,7 +111,7 @@ function VideoPlayer({
       }
       if (onEnded) {
         console.log('VideoPlayer - Appel de onEnded');
-        onEnded(); // Appeler la prop onEnded
+        onEnded();
       }
     };
 
@@ -113,13 +126,14 @@ function VideoPlayer({
       video.removeEventListener('error', () => {});
       video.removeEventListener('ended', handleEnded);
     };
-  }, [videoUrl, clickable_regions, clickable_zones, interactionResponses, onInteraction, onEnded]);
+  }, [videoUrl, clickable_regions, markedZones, interactionResponses, onInteraction, onEnded]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isAdmin || !videoRef.current) return;
     const rect = videoRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    console.log('Admin - MouseDown:', { x, y, time: videoRef.current.currentTime });
     setStartPos({ x, y });
     setIsMarking(true);
   };
@@ -129,15 +143,14 @@ function VideoPlayer({
     const rect = videoRef.current.getBoundingClientRect();
     const currentX = e.clientX - rect.left;
     const currentY = e.clientY - rect.top;
-    const width = Math.abs(currentX - startPos.x);
-    const height = Math.abs(currentY - startPos.y);
-    const left = Math.min(startPos.x, currentX);
-    const top = Math.min(startPos.y, currentY);
+    const radius = Math.sqrt((currentX - startPos.x) ** 2 + (currentY - startPos.y) ** 2);
+    console.log('Admin - MouseMove:', { currentX, currentY, radius });
     if (markingRef.current) {
-      markingRef.current.style.left = `${left}px`;
-      markingRef.current.style.top = `${top}px`;
-      markingRef.current.style.width = `${width}px`;
-      markingRef.current.style.height = `${height}px`;
+      markingRef.current.style.left = `${startPos.x - radius}px`;
+      markingRef.current.style.top = `${startPos.y - radius}px`;
+      markingRef.current.style.width = `${radius * 2}px`;
+      markingRef.current.style.height = `${radius * 2}px`;
+      markingRef.current.style.borderRadius = '50%';
       markingRef.current.style.display = 'block';
     }
   };
@@ -148,13 +161,20 @@ function VideoPlayer({
     const endX = e.clientX - rect.left;
     const endY = e.clientY - rect.top;
     const time = videoRef.current.currentTime;
-    const width = Math.abs(endX - startPos.x);
-    const height = Math.abs(endY - startPos.y);
-    const x = Math.min(startPos.x, endX);
-    const y = Math.min(startPos.y, endY);
-    const newZone: ClickableZone = { x, y, width, height, time };
+    const radius = Math.sqrt((endX - startPos.x) ** 2 + (endY - startPos.y) ** 2);
+    if (isNaN(radius) || isNaN(startPos.x) || isNaN(startPos.y) || isNaN(time)) {
+      console.error('Admin - MouseUp - Données invalides pour la nouvelle zone:', { startPos, radius, time });
+      setIsMarking(false);
+      setStartPos(null);
+      if (markingRef.current) {
+        markingRef.current.style.display = 'none';
+      }
+      return;
+    }
+    const newZone: ClickableZone = { x: startPos.x, y: startPos.y, radius, time };
+    console.log('Admin - MouseUp - Nouvelle zone:', newZone);
     setMarkedZones((prev) => [...prev, newZone]);
-    setInteractionResponses((prev) => [...prev, { region: newZone, clicked: false, isValid: false, clickTime: 0 }]);
+    setInteractionResponses((prev) => [...prev, { region: newZone, clicked: false, isValid: false }]);
     setIsMarking(false);
     setStartPos(null);
     if (markingRef.current) {
@@ -190,15 +210,10 @@ function VideoPlayer({
       setTimeout(() => setPopupMessage(null), 2000);
     }
 
-    const matchingZone = clickable_zones.find((zone) => {
+    const matchingZone = markedZones.find((zone) => {
       const timeDiff = Math.abs(clickTime - zone.time);
-      return (
-        timeDiff <= TIME_TOLERANCE &&
-        clickX >= zone.x &&
-        clickX <= zone.x + zone.width &&
-        clickY >= zone.y &&
-        clickY <= zone.y + zone.height
-      );
+      const distance = Math.sqrt((clickX - zone.x) ** 2 + (clickY - zone.y) ** 2);
+      return timeDiff <= TIME_TOLERANCE && distance <= zone.radius;
     });
 
     if (matchingZone) {
@@ -292,11 +307,15 @@ function VideoPlayer({
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Normaliser les valeurs de width et height
+  const normalizedWidth = typeof width === 'number' ? `${width}px` : width;
+  const normalizedHeight = typeof height === 'number' ? `${height}px` : height;
+
   return (
     <div
       ref={containerRef}
       className="relative bg-black rounded-xl overflow-hidden"
-      style={{ width: '100%', height: 'auto' }}
+      style={{ width: normalizedWidth, height: normalizedHeight }}
     >
       {videoError ? (
         <p className="text-red-500 p-4">{videoError}</p>
@@ -310,7 +329,7 @@ function VideoPlayer({
           >
             <video
               ref={videoRef}
-              className="w-full aspect-video"
+              className="w-full h-full object-contain"
               src={videoUrl}
               controls={false}
               playsInline
@@ -356,54 +375,78 @@ function VideoPlayer({
                 </div>
               ))}
             {isAdmin &&
-              markedZones.map((zone, index) => (
-                <div
-                  key={`zone-${index}`}
-                  style={{
-                    position: 'absolute',
-                    left: zone.x,
-                    top: zone.y,
-                    width: zone.width,
-                    height: zone.height,
-                    border: '2px solid red',
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <span
+              markedZones.map((zone, index) => {
+                if (
+                  typeof zone.x !== 'number' ||
+                  typeof zone.y !== 'number' ||
+                  typeof zone.radius !== 'number' ||
+                  typeof zone.time !== 'number'
+                ) {
+                  console.error('Zone invalide détectée:', zone);
+                  return null;
+                }
+                return (
+                  <div
+                    key={`zone-${index}`}
                     style={{
                       position: 'absolute',
-                      top: '-30px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                      color: 'white',
-                      padding: '2px 5px',
-                      borderRadius: '3px',
-                      fontSize: '12px',
-                      whiteSpace: 'nowrap',
+                      left: `${zone.x - zone.radius}px`,
+                      top: `${zone.y - zone.radius}px`,
+                      width: `${zone.radius * 2}px`,
+                      height: `${zone.radius * 2}px`,
+                      border: '2px solid red',
+                      borderRadius: '50%',
+                      pointerEvents: 'none',
                     }}
                   >
-                    {`(${zone.x.toFixed(0)}, ${zone.y.toFixed(0)}, ${zone.time.toFixed(2)}s)`}
-                  </span>
-                </div>
-              ))}
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '-30px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        color: 'white',
+                        padding: '2px 5px',
+                        borderRadius: '3px',
+                        fontSize: '12px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {`(${zone.x.toFixed(0)}, ${zone.y.toFixed(0)}, ${zone.time.toFixed(2)}s, r:${zone.radius.toFixed(0)})`}
+                    </span>
+                  </div>
+                );
+              })}
             {role === 'Apprenant' &&
-              clickable_zones.map((zone, index) => (
-                <div
-                  key={`zone-${index}`}
-                  style={{
-                    position: 'absolute',
-                    left: zone.x,
-                    top: zone.y,
-                    width: zone.width,
-                    height: zone.height,
-                    border: isRegionActive(zone) ? '2px solid green' : 'none',
-                    backgroundColor: isRegionActive(zone) ? 'rgba(0, 255, 0, 0.2)' : 'transparent',
-                    pointerEvents: 'none',
-                    animation: isRegionActive(zone) ? 'pulse 1s infinite' : 'none',
-                  }}
-                />
-              ))}
+              markedZones.map((zone, index) => {
+                if (
+                  typeof zone.x !== 'number' ||
+                  typeof zone.y !== 'number' ||
+                  typeof zone.radius !== 'number' ||
+                  typeof zone.time !== 'number'
+                ) {
+                  console.error('Zone invalide détectée:', zone);
+                  return null;
+                }
+                return (
+                  <div
+                    key={`zone-${index}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${zone.x - zone.radius}px`,
+                      top: `${zone.y - zone.radius}px`,
+                      width: `${zone.radius * 2}px`,
+                      height: `${zone.radius * 2}px`,
+                      border: isRegionActive(zone) ? '2px solid green' : 'none',
+                      backgroundColor: isRegionActive(zone) ? 'rgba(0, 255, 0, 0.2)' : 'transparent',
+                      borderRadius: '50%',
+                      pointerEvents: 'none',
+                      animation: isRegionActive(zone) ? 'pulse 1s infinite' :'none'
+                    }}
+                  />
+                );
+              })}
             {isMarking && (
               <div
                 ref={markingRef}
@@ -412,6 +455,7 @@ function VideoPlayer({
                   border: '2px dashed blue',
                   pointerEvents: 'none',
                   display: 'none',
+                  borderRadius: '50%',
                 }}
               />
             )}

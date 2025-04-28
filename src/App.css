@@ -13,3 +13,47 @@
 .pointer-events-none {
   pointer-events: none; /* Permet aux clics de passer à travers */
 }
+.quiz-container {
+  max-width: 800px; /* Correspond à la largeur totale du conteneur blanc (768px + padding) */
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.quiz-container .white-container {
+  width: 800px; /* Largeur totale incluant padding */
+  box-sizing: border-box;
+  background-color: #fff;
+  border-radius: 0.75rem; /* rounded-xl */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); /* shadow-lg */
+  padding: 2rem; /* p-8 */
+}
+
+.video-player-container {
+  width: 768px; /* Correspond à la largeur de VideoPlayer */
+  background-color: #000;
+  border-radius: 0.75rem; /* rounded-xl */
+  overflow: hidden;
+}
+
+.video-player-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@media (max-width: 800px) {
+  .quiz-container {
+    max-width: 100%;
+    padding: 1rem; /* Réduit le padding */
+  }
+
+  .quiz-container .white-container {
+    width: 100%; /* Prend toute la largeur disponible */
+    padding: 1.5rem; /* Réduit le padding pour petits écrans */
+  }
+
+  .video-player-container {
+    width: 100%; /* S'adapte à la largeur du conteneur */
+  }
+}

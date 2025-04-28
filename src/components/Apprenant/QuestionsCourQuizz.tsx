@@ -203,8 +203,8 @@ function ChapterQuestion() {
   console.log(`Question ${currentQuestion + 1} - Submit enabled: ${isSubmitEnabled}, Video complete: ${isVideoInteractionComplete}, Text answer: ${answers[currentQuestion] || 'N/A'}`);
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="bg-white rounded-xl shadow-lg p-8">
+    <div className="quiz-container p-6">
+      <div className="bg-white rounded-xl shadow-lg p-8" style={{ width: '800px', boxSizing: 'border-box' }}>
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-semibold text-gray-800">Quiz du Chapitre {chapterId}</h2>
@@ -218,7 +218,7 @@ function ChapterQuestion() {
             sx={{ height: 8, borderRadius: 4, backgroundColor: '#e5e7eb', '& .MuiLinearProgress-bar': { backgroundColor: '#3b82f6' } }}
           />
         </div>
-
+  
         <div className="mb-8">
           <Box display="flex" alignItems="center" mb={2}>
             <Typography variant="h6" className="font-semibold text-gray-800">
@@ -232,7 +232,7 @@ function ChapterQuestion() {
               <Volume2 size={20} />
             </Button>
           </Box>
-
+  
           {current.imagecour ? (
             <div className="mb-4 flex justify-center">
               <img
@@ -242,22 +242,36 @@ function ChapterQuestion() {
                     : URL.createObjectURL(current.imagecour)
                 }
                 alt="Illustration de la question"
-                className="max-w-full h-48 object-contain rounded-lg shadow-md"
+                className="max-w-[768px] h-48 object-contain rounded-lg shadow-md"
               />
             </div>
           ) : current.video && videoUrl ? (
             <div className="mb-4 flex justify-center">
-              <VideoPlayer
-                videoUrl={videoUrl}
-                clickable_regions={current.clickable_regions || []}
-                clickable_zones={current.clickable_zones || []}
-                onInteraction={(responses: InteractionResponse2[]) => handleVideoInteraction(currentQuestion, responses)}
-                onEnded={() => handleVideoEnded(currentQuestion)} // Ajouter la gestion de la fin de vidéo
-                role="Apprenant"
-              />
+              <div className="relative bg-black rounded-xl" style={{ width: '768px' }}>
+                <VideoPlayer
+                  videoUrl={videoUrl}
+                  clickable_regions={current.clickable_regions || []}
+                  clickable_zones={(current.clickable_zones || []).map((zone) => {
+                    if ('width' in zone && 'height' in zone) {
+                      return {
+                        x: zone.x,
+                        y: zone.y,
+                        radius: Math.min(zone.width as number, zone.height as number) / 2,
+                        time: zone.time,
+                      };
+                    }
+                    return zone;
+                  })}
+                  onInteraction={(responses: InteractionResponse2[]) => handleVideoInteraction(currentQuestion, responses)}
+                  onEnded={() => handleVideoEnded(currentQuestion)}
+                  role="Apprenant"
+                  width="768px"
+                  height="auto"
+                />
+              </div>
             </div>
           ) : null}
-
+  
           {options.length > 0 && (
             <FormControl component="fieldset">
               <RadioGroup
@@ -288,7 +302,7 @@ function ChapterQuestion() {
             </FormControl>
           )}
         </div>
-
+  
         <div className="flex justify-between">
           <Button
             variant="contained"

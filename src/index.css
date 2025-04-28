@@ -5,3 +5,17 @@
 .navbar {
     height: 40px; /* ou une autre valeur plus petite */
   }
+  .video-player-container {
+    max-width: 896px; /* Équivalent à max-w-3xl */
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: #000;
+    border-radius: 0.75rem; /* rounded-xl */
+    overflow: hidden;
+  }
+  
+  .video-player-container video {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
